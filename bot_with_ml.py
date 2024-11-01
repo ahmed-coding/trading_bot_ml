@@ -372,7 +372,7 @@ def monitor_trades():
     """
     while True:
         check_trade_conditions()
-        # time.sleep(1)  # Optional: add a short delay for efficient processing
+        time.sleep(0.1)  # Optional: add a short delay for efficient processing
 
 # Main function to start the bot
 def start_trading():
