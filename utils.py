@@ -18,7 +18,7 @@ def get_top_symbols(limit=10, profit_target=0.003):
     for ticker in sorted_tickers:
         if ticker['symbol'].endswith("USDT"):
             try:
-                klines = client.get_klines(symbol=ticker['symbol'], interval=Client.KLINE_INTERVAL_1MINUTE, limit=30)
+                klines = client.get_klines(symbol=ticker['symbol'], interval=Client.KLINE_INTERVAL_15MINUTE, limit=30)
                 closing_prices = [float(kline[4]) for kline in klines]
                 stddev = statistics.stdev(closing_prices)
                 

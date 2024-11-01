@@ -11,7 +11,7 @@ from config import API_KEY,API_SECRET
 client = Client(API_KEY, API_SECRET)
 client.API_URL = 'https://testnet.binance.vision/api'
 
-def collect_data(symbol, interval='1m', limit=100):
+def collect_data(symbol, interval='15m', limit=100):
     """
     Collect short-term data for scalping strategy with 1-minute intervals.
     Saves data with indicators that capture rapid price movements.
