@@ -1,5 +1,3 @@
-# train_models.py
-
 import pandas as pd
 import os
 from sklearn.model_selection import train_test_split
@@ -7,7 +5,7 @@ from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.preprocessing import StandardScaler
 import numpy as np
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense
+from tensorflow.keras.layers import LSTM, Dense, Dropout
 import joblib
 
 # Directory containing scalping data
@@ -27,7 +25,7 @@ def load_data():
     
     # Concatenate all data into a single DataFrame
     combined_data = pd.concat(all_data, ignore_index=True)
-    features = combined_data[["MA3", "MA5", "RSI", "Volatility"]]
+    features = combined_data[["MA3", "MA5", "MA15", "RSI", "Volatility"]]
     trend_target = combined_data["Trend"]
     volatility_target = combined_data["Volatility"]
 
@@ -42,14 +40,16 @@ def train_trend_model(X_train, y_train):
     Train LSTM model for predicting short-term price trend.
     """
     trend_model = Sequential()
-    trend_model.add(LSTM(50, return_sequences=True, input_shape=(X_train.shape[1], 1)))
-    trend_model.add(LSTM(50))
+    trend_model.add(LSTM(64, return_sequences=True, input_shape=(X_train.shape[1], 1)))
+    trend_model.add(Dropout(0.2))
+    trend_model.add(LSTM(64))
+    trend_model.add(Dropout(0.2))
     trend_model.add(Dense(1, activation="sigmoid"))
     trend_model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
 
     # Reshape for LSTM
     X_train_lstm = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
-    trend_model.fit(X_train_lstm, y_train, epochs=5, batch_size=32)
+    trend_model.fit(X_train_lstm, y_train, epochs=10, batch_size=64, verbose=1)
 
     return trend_model
 
@@ -57,7 +57,7 @@ def train_volatility_model(X_train, y_train):
     """
     Train a Gradient Boosting model for predicting volatility.
     """
-    volatility_model = GradientBoostingRegressor()
+    volatility_model = GradientBoostingRegressor(n_estimators=200, learning_rate=0.1, max_depth=5, random_state=42)
     volatility_model.fit(X_train, y_train)
 
     return volatility_model

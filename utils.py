@@ -8,7 +8,7 @@ from config import API_KEY,API_SECRET
 client = Client(API_KEY, API_SECRET)
 client.API_URL = 'https://testnet.binance.vision/api'
 
-def get_top_symbols(limit=10, profit_target=0.003):
+def get_top_symbols(limit=15, profit_target=0.003):
     """
     Fetch top symbols based on volume, volatility, and stability for scalping.
     """
