@@ -1,15 +1,15 @@
+# collect_data.py
+
 import csv
 import numpy as np
 import statistics
 from binance.client import Client
 from utils import get_top_symbols  # Import get_top_symbols for consistency
 from config import API_KEY, API_SECRET
-from sklearn.impute import SimpleImputer
 
 # Initialize Binance client
 client = Client(API_KEY, API_SECRET)
 client.API_URL = 'https://testnet.binance.vision/api'
-
 def collect_data(symbol, interval='3m', limit=100):
     """
     Collect short-term data for scalping strategy with 3-minute intervals.
@@ -28,21 +28,20 @@ def collect_data(symbol, interval='3m', limit=100):
 
             for i in range(15, len(klines)):
                 close_prices = [float(k[4]) for k in klines[i-15:i]]
-                ma3 = np.mean(close_prices[-3:])
-                ma5 = np.mean(close_prices[-5:])
-                ma15 = np.mean(close_prices)
-                
+
+                # Calculate moving averages
+                ma3 = np.nanmean(close_prices[-3:]) if len(close_prices[-3:]) > 0 else 0
+                ma5 = np.nanmean(close_prices[-5:]) if len(close_prices[-5:]) > 0 else 0
+                ma15 = np.nanmean(close_prices) if len(close_prices) > 0 else 0
+
                 # Calculate gains and losses for RSI
                 diff = np.diff(close_prices)
-                gains = np.mean([d for d in diff if d > 0]) if len([d for d in diff if d > 0]) > 0 else 0
-                losses = np.mean([-d for d in diff if d < 0]) if len([d for d in diff if d < 0]) > 0 else 0
+                gains = np.nanmean([d for d in diff if d > 0]) if len([d for d in diff if d > 0]) > 0 else 0
+                losses = np.nanmean([-d for d in diff if d < 0]) if len([d for d in diff if d < 0]) > 0 else 0
                 rsi = 100 - (100 / (1 + gains / losses)) if losses != 0 else 100
 
                 # Calculate volatility
-                if len(close_prices) > 1:
-                    volatility = statistics.stdev(close_prices)
-                else:
-                    volatility = 0
+                volatility = statistics.stdev(close_prices) if len(close_prices) > 1 else 0
 
                 # Determine trend (1 if price increased, 0 if decreased)
                 trend = 1 if close_prices[-1] > close_prices[0] else 0
