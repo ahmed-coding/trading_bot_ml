@@ -29,10 +29,10 @@ client = Client(API_KEY, API_SECRET)
 # client.API_URL = 'https://testnet.binance.vision/api'
 
 # إدارة المحفظة
-balance = 90  # الرصيد المبدئي للبوت
-investment = 6  # حجم كل صفقة (تم تقليله لتقليل المخاطر)
-base_profit_target = 0.004  # زيادة نسبة الربح لتحسين الاستراتيجية
-base_stop_loss = 0.002  # تعديل نسبة الخسارة لتكون أكثر صرامة
+balance = 45  # الرصيد المبدئي للبوت
+investment = 8  # حجم كل صفقة (تم تقليله لتقليل المخاطر)
+base_profit_target = 0.004 # زيادة نسبة الربح لتحسين الاستراتيجية
+base_stop_loss = 0.001  # تعديل نسبة الخسارة لتكون أكثر صرامة
 max_open_trades = 5  # الحد الأقصى للصفقات المفتوحة في نفس الوقت (تم تقليله لتقليل المخاطر)
 timeout = 5  # وقت انتهاء وقت الصفقة (بالدقائق)
 commission_rate = 0.001  # نسبة العمولة للمنصة
@@ -40,6 +40,7 @@ excluded_symbols = set()  # قائمة العملات المستثناة بسب�
 symbols_to_trade = []
 current_prices = {}
 active_trades = {}
+lose_symbols = set()
 
 # ملف CSV لتسجيل التداولات
 csv_file = 'trades_log.csv'
@@ -90,7 +91,7 @@ def predict_trend(features):
     try:
         with model_lock:
             trend_prediction = trend_model.predict(features, verbose=0)
-        return trend_prediction[0][0] > 0.85  # زيادة العتبة للتوقع الصاعد لتجنب الصفقات الخاسرة
+        return trend_prediction[0][0] > 0.70  # زيادة العتبة للتوقع الصاعد لتجنب الصفقات الخاسرة
     except Exception as e:
         print(f"خطأ في توقع الاتجاه: {e}")
         return False
@@ -154,7 +155,7 @@ def train_models_with_updated_data():
 def open_trade_with_dynamic_target(symbol):
     global balance
     if len(active_trades) >= max_open_trades:
-        print(f"لا يمكن فتح صفقات جديدة - الحد الأقصى للصفقات المفتوحة ({max_open_trades}) تم الوصول إليه.")
+        # print(f"لا يمكن فتح صفقات جديدة - الحد الأقصى للصفقات المفتوحة ({max_open_trades}) تم الوصول إليه.")
         return
 
     reload_models_if_updated()
@@ -164,20 +165,24 @@ def open_trade_with_dynamic_target(symbol):
 
     # تحديد الاتجاه بناءً على التنبؤ
     trend_is_up = predict_trend(features)
+    # print(f"trend_is_up: {trend_is_up} for {symbol}")
     # print(f"نتيجة التوقع للاتجاه لـ {symbol}: {'صاعد' if trend_is_up else 'هابط'}")
     if not trend_is_up:
         # print(f"{symbol} - الاتجاه هابط، لن يتم فتح الصفقة.")
         return
 
     predicted_volatility = predict_volatility(features)
+    # print(f"predicted_volatility: {predicted_volatility} for {symbol}")
     if predicted_volatility is None:
         return
     if not check_bnb_balance():
         print(f"{datetime.now()} - الرصيد غير كافٍ من BNB لتغطية الرسوم. يرجى إيداع BNB.")
         return
+    if symbol in lose_symbols:
+        return
     current_price = float(client.get_symbol_ticker(symbol=symbol)['price'])
-    profit_target = base_profit_target + predicted_volatility * 0.1  # تقليل تأثير التذبذب على الهدف الربحي لتقليل الخسائر
-    stop_loss = base_stop_loss + predicted_volatility * 0.05  # تعديل نسبة الإيقاف لتكون أكثر صرامة
+    profit_target = base_profit_target + predicted_volatility * 0.2  # تقليل تأثير التذبذب على الهدف الربحي لتقليل الخسائر
+    stop_loss = base_stop_loss + predicted_volatility * 0.01  # تعديل نسبة الإيقاف لتكون أكثر صرامة
     target_price = current_price * (1 + profit_target)
     stop_price = current_price * (1 - stop_loss)
     quantity = adjust_quantity(symbol, investment / current_price)
@@ -203,7 +208,7 @@ def open_trade_with_dynamic_target(symbol):
 # تحديث قائمة العملات بشكل متسلسل
 def update_symbols():
     global symbols_to_trade
-    symbols_to_trade = get_top_symbols(20)
+    symbols_to_trade = get_top_symbols(50)
     print(f"{datetime.now()} - تم تحديث قائمة العملات للتداول: {symbols_to_trade}")
     # Train models with updated data
     train_models_with_updated_data()
@@ -239,6 +244,7 @@ def monitor_trades():
                 result = "ربح"
             elif current_price <= trade['stop_price']:
                 result = "خسارة"
+                lose_symbols.add(symbol)
             elif time.time() - trade['start_time'] >= trade['timeout']:
                 result = "انتهاء المهلة"
 
@@ -300,14 +306,15 @@ def sell_trade(symbol, quantity, result):
         print(f"خطأ في بيع {symbol}: {e}")
 
 # دالة للحصول على أفضل العملات
-def get_top_symbols(limit=20, profit_target=0.004):
+def get_top_symbols(limit=50, profit_target=0.007):
     tickers = client.get_ticker()
     sorted_tickers = sorted(tickers, key=lambda x: float(x['quoteVolume']), reverse=True)
     top_symbols = []
+    lose_symbols=set()
     for ticker in sorted_tickers:
         if ticker['symbol'].endswith("USDC") and ticker['symbol'] not in excluded_symbols:
             try:
-                klines = client.get_klines(symbol=ticker['symbol'], interval=Client.KLINE_INTERVAL_5MINUTE, limit=30)
+                klines = client.get_klines(symbol=ticker['symbol'], interval=Client.KLINE_INTERVAL_3MINUTE, limit=30)
                 closing_prices = [float(kline[4]) for kline in klines]
                 # if len(closing_prices) < 2:
                 #     continue
@@ -316,7 +323,8 @@ def get_top_symbols(limit=20, profit_target=0.004):
                 volatility_ratio = stddev / avg_price
 
                 # If the symbol meets the profit target condition, add it to the list
-                if stddev < 0.03 and volatility_ratio >= profit_target:
+                # if stddev < 0.03 and volatility_ratio >= profit_target:
+                if stddev < 0.03:
                     top_symbols.append(ticker['symbol'])
                     print(f"تم اختيار العملة {ticker['symbol']} بنسبة تذبذب {volatility_ratio:.4f}")
                 if len(top_symbols) >= limit:
