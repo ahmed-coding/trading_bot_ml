@@ -1,31 +1,27 @@
 import sqlite3
 
-# api_key = 'of6qt1T1MpGvlgma1qxwFTLdrGNNVsMj0fKf8LZy1sMf3OqTrwHC7BCRIkgsSsda'
-# api_secret = 'MZuALJiqyWMoQ0WkPE6tqWdToGLTHLsap5m95qhPIDtizy1FPD0TQBXNvyQBhgFf'
+
+# db= sqlite3.connect("db.sqlite3")
+
+# db.execute("""CREATE TABLE IF NOT EXISTS 'config' ( 
+        
+#         `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+#         `key` varchar(30),
+#         `value` varchar(255)
+#     );""")
+
+# db.commit()
 
 
-# api_key = 'tweOjH1Keln44QaxLCr3naevRPgF3j3sYuOpaAg9B7nUT74MyURemvivEUcihfkt'
-# api_secret = 'XLlku378D8aZzYg9JjOTtUngA8Q73xBCyy7jGVbqRYSoEICsGBfWC0cIsRptLHxb'
+# db.execute("""insert into `config` (`key`, `value`) VALUES (
+#     'status','1'
+#     ); """)
 
-# api_key = 'of6qt1T1MpGvlgma1qxwFTLdrGNNVsMj0fKf8LZy1sMf3OqTrwHC7BCRIkgsSsda'
-# api_secret = 'MZuALJiqyWMoQ0WkPE6tqWdToGLTHLsap5m95qhPIDtizy1FPD0TQBXNvyQBhgFf'
+# db.commit()
 
-
-# api_key = 'tweOjH1Keln44QaxLCr3naevRPgF3j3sYuOpaAg9B7nUT74MyURemvivEUcihfkt'
-# api_secret = 'XLlku378D8aZzYg9JjOTtUngA8Q73xBCyy7jGVbqRYSoEICsGBfWC0cIsRptLHxb'
-
-
-
-API_KEY = 'tweOjH1Keln44QaxLCr3naevRPgF3j3sYuOpaAg9B7nUT74MyURemvivEUcihfkt'
-API_SECRET= 'XLlku378D8aZzYg9JjOTtUngA8Q73xBCyy7jGVbqRYSoEICsGBfWC0cIsRptLHxb'
-
-# API_KEY  = 'of6qt1T1MpGvlgma1qxwFTLdrGNNVsMj0fKf8LZy1sMf3OqTrwHC7BCRIkgsSsda'
-# API_SECRET = 'MZuALJiqyWMoQ0WkPE6tqWdToGLTHLsap5m95qhPIDtizy1FPD0TQBXNvyQBhgFf'
 
 class Settings:
-    """
-        `Bot settings like is on or of trads`
-    """
+    
     def __init__(self) -> None:
         self.db = sqlite3.connect("db.sqlite3")
         self.init()
@@ -101,3 +97,27 @@ class Settings:
             cursor.execute("""update config set value='0' where key='trading_status'""")
             self.db.commit()
         return True
+
+
+
+settings=Settings()
+
+
+# status= settings.bot_status()
+# print(status)
+# settings.turn_bot_of()
+# status= settings.bot_status()
+# print(status)
+# settings.turn_bot_on()
+# status= settings.bot_status()
+# print(status)
+
+
+status= settings.trading_status()
+print(status)
+settings.turn_trading_of()
+status= settings.trading_status()
+print(status)
+settings.turn_trading_on()
+status= settings.trading_status()
+print(status)

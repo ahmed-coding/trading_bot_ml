@@ -20,7 +20,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 data_directory = "data"  # Folder where data files are stored
 
 # Training interval (e.g., retrain every 1 hour)
-RETRAIN_INTERVAL = 900  # 1 hour in seconds
+RETRAIN_INTERVAL = 900  # 15 minutes in seconds
 last_training_time = 0
 
 # Model lock for thread safety
@@ -136,14 +136,21 @@ def load_trade_log_data():
         return None, None
     try:
         trade_log = pd.read_csv(trade_log_file)
-        features = trade_log[["السعر الابتدائي", "سعر الهدف", "سعر الإيقاف"]]
+
+        # Adding dummy columns for missing features to match expected input for scaler
+        trade_log['MA3'] = trade_log['السعر الابتدائي']  # Example value, adjust as needed
+        trade_log['MA5'] = trade_log['سعر الهدف']  # Example value, adjust as needed
+        trade_log['MA15'] = trade_log['سعر الإيقاف']  # Example value, adjust as needed
+        trade_log['RSI'] = 50  # Dummy value, adjust as needed
+        trade_log['Volatility'] = 0.01  # Dummy value, adjust as needed
+
+        features = trade_log[['MA3', 'MA5', 'MA15', 'RSI', 'Volatility']]
         target = trade_log["النتيجة"].apply(lambda x: 1 if x == "ربح" else 0)
 
         imputer = SimpleImputer(strategy='mean')
         features_imputed = imputer.fit_transform(features)
 
-        scaler = StandardScaler()
-        features_scaled = scaler.fit_transform(features_imputed)
+        features_scaled = scaler.transform(features_imputed)  # Use the loaded scaler to transform features
 
         features_scaled_df = pd.DataFrame(features_scaled, columns=features.columns)
 
@@ -151,6 +158,7 @@ def load_trade_log_data():
     except Exception as e:
         print(f"Error loading trade log data: {e}")
         return None, None
+
 
 
 def train_trend_model(X_train, y_train):
@@ -200,12 +208,12 @@ def retrain_models_if_needed():
             volatility_target = pd.concat([volatility_target, online_volatility_target], ignore_index=True)
 
         # Load trade log data and combine if available
-        trade_log_features, trade_log_target = load_trade_log_data()
-        if trade_log_features is not None and len(trade_log_features) > 0:
-            # Ensure compatibility in the shape of features and targets
-            if len(trade_log_features.columns) == len(features.columns):
-                features = pd.concat([features, trade_log_features], ignore_index=True)
-                trend_target = pd.concat([trend_target, trade_log_target], ignore_index=True)
+        # trade_log_features, trade_log_target = load_trade_log_data()
+        # if trade_log_features is not None and len(trade_log_features) > 0:
+        #     # Ensure compatibility in the shape of features and targets
+        #     if len(trade_log_features.columns) == len(features.columns):
+        #         features = pd.concat([features, trade_log_features], ignore_index=True)
+        #         trend_target = pd.concat([trend_target, trade_log_target], ignore_index=True)
 
         # Combine all data into a single DataFrame and drop NaN values
         combined_df = pd.concat([features, trend_target, volatility_target], axis=1)
@@ -244,6 +252,17 @@ def retrain_models_if_needed():
 
         # Update last training time
         last_training_time = current_time
+
+
+def predict_volatility(features):
+    try:
+        with model_lock:
+            features = np.array(features).reshape(1, -1)  # Reshape to match expected input
+            predicted_volatility = volatility_model.predict(features)[0]
+        return predicted_volatility
+    except Exception as e:
+        print(f"خطأ في توقع التذبذب: {e}")
+        return None
 
 
 if __name__ == "__main__":

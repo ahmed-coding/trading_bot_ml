@@ -174,10 +174,10 @@ def retrain_models_if_needed():
             volatility_target = pd.concat([volatility_target, online_volatility_target], ignore_index=True)
         
         # Load trade log data and combine if available
-        trade_log_features, trade_log_target = load_trade_log_data()
-        if trade_log_features is not None:
-            features = pd.concat([features, trade_log_features], ignore_index=True)
-            trend_target = pd.concat([trend_target, trade_log_target], ignore_index=True)
+        # trade_log_features, trade_log_target = load_trade_log_data()
+        # if trade_log_features is not None:
+        #     features = pd.concat([features, trade_log_features], ignore_index=True)
+        #     trend_target = pd.concat([trend_target, trade_log_target], ignore_index=True)
         
         # Convert DataFrame to NumPy array for consistency
         features = features.to_numpy()
@@ -210,6 +210,6 @@ if __name__ == "__main__":
     retrain_models_if_needed()
 
     # Main loop to keep retraining models periodically
-    while True:
-        retrain_models_if_needed()
-        time.sleep(300)  # Check every 5 minutes if retraining is needed
+    # while True:
+    #     retrain_models_if_needed()
+    #     time.sleep(300)  # Check every 5 minutes if retraining is needed

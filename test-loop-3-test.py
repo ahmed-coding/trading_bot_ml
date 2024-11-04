@@ -18,8 +18,8 @@ from threading import Lock
 from binance.client import Client
 import concurrent.futures
 import threading
-from config import API_KEY, API_SECRET
-from train_models_test import train_trend_model, train_volatility_model, load_data, retrain_models_if_needed
+from config import API_KEY, API_SECRET,Settings
+from train_models import train_trend_model, train_volatility_model, load_data, retrain_models_if_needed
 from sklearn.impute import SimpleImputer
 
 
@@ -45,6 +45,7 @@ symbols_to_trade = []
 current_prices = {}
 active_trades = {}
 lose_symbols = set()
+bot_settings=Settings()
 
 # ملف CSV لتسجيل التداولات
 csv_file = 'trades_log_test.csv'  # حفظ النتائج في ملف آخر للتجربة
@@ -68,10 +69,43 @@ def load_models():
 
 load_models()
 
+# # Prepare features for ML models
+# def prepare_features(symbol):
+#     try:
+#         klines = client.get_klines(symbol=symbol, interval=Client.KLINE_INTERVAL_3MINUTE, limit=15)
+#         close_prices = [float(k[4]) for k in klines]
+#         if len(close_prices) < 15:
+#             print(f"{symbol} - بيانات غير كافية لحساب الميزات.")
+#             return None, None
+
+#         ma3 = np.mean(close_prices[-3:])
+#         ma5 = np.mean(close_prices[-5:])
+#         ma15 = np.mean(close_prices)
+#         gains = np.mean([diff for diff in np.diff(close_prices) if diff > 0]) if len([diff for diff in np.diff(close_prices) if diff > 0]) > 0 else 0
+#         losses = np.mean([-diff for diff in np.diff(close_prices) if diff < 0]) if len([diff for diff in np.diff(close_prices) if diff < 0]) > 0 else 0
+#         rsi = 100 - (100 / (1 + gains / losses)) if losses != 0 else 100
+#         volatility = statistics.stdev(close_prices)
+
+#         features = pd.DataFrame([[ma3, ma5, ma15, rsi, volatility]], columns=['MA3', 'MA5', 'MA15', 'RSI', 'Volatility'])
+#         if features.isnull().values.any():
+#             print(f"{symbol} - بيانات تحتوي على قيم مفقودة. سيتم تجاهل هذا الرمز.")
+#             return None, None
+
+#         imputer = SimpleImputer(strategy='mean')
+#         features = pd.DataFrame(imputer.fit_transform(features), columns=features.columns)
+
+#         # تحجيم الميزات باستخدام scaler المحمل من النموذج
+#         features_scaled = scaler.transform(features)
+
+#         return features_scaled, close_prices
+#     except Exception as e:
+#         print(f"{symbol} - خطأ في التحضير للميزات: {e}")
+#         return None, None
+
 # Prepare features for ML models
 def prepare_features(symbol):
     try:
-        klines = client.get_klines(symbol=symbol, interval=Client.KLINE_INTERVAL_3MINUTE, limit=15)
+        klines = client.get_klines(symbol=symbol, interval=Client.KLINE_INTERVAL_3MINUTE, limit=30)
         close_prices = [float(k[4]) for k in klines]
         if len(close_prices) < 15:
             print(f"{symbol} - بيانات غير كافية لحساب الميزات.")
@@ -79,36 +113,24 @@ def prepare_features(symbol):
         ma3 = np.mean(close_prices[-3:])
         ma5 = np.mean(close_prices[-5:])
         ma15 = np.mean(close_prices)
-        gains = np.mean([diff for diff in np.diff(close_prices) if diff > 0]) if len([diff for diff in np.diff(close_prices) if diff > 0]) > 0 else 0
-        losses = np.mean([-diff for diff in np.diff(close_prices) if diff < 0]) if len([diff for diff in np.diff(close_prices) if diff < 0]) > 0 else 0
+        gains = np.mean([diff for diff in np.diff(close_prices) if diff > 0]) if np.diff(close_prices).any() else 0
+        losses = np.mean([-diff for diff in np.diff(close_prices) if diff < 0]) if np.diff(close_prices).any() else 0
         rsi = 100 - (100 / (1 + gains / losses)) if losses != 0 else 100
         volatility = statistics.stdev(close_prices)
-
-        # التحقق من عدم وجود قيم NaN
         features = pd.DataFrame([[ma3, ma5, ma15, rsi, volatility]], columns=['MA3', 'MA5', 'MA15', 'RSI', 'Volatility'])
-        if features.isnull().values.any():
-            print(f"{symbol} - بيانات تحتوي على قيم مفقودة. سيتم تجاهل هذا الرمز.")
-            return None, None
-
-        # استخدام SimpleImputer لاستبدال القيم المفقودة إن وجدت
-        imputer = SimpleImputer(strategy='mean')
-        features = pd.DataFrame(imputer.fit_transform(features), columns=features.columns)
-
-        # إزالة أسماء الأعمدة قبل التحجيم
-        features = features.values  # تحويل DataFrame إلى مصفوفة numpy بدون أسماء الأعمدة
-
         scaled_features = scaler.transform(features)
         return scaled_features, close_prices
     except Exception as e:
         print(f"{symbol} - خطأ في التحضير للميزات: {e}")
         return None, None
 
+
 # Prediction helper functions
 def predict_trend(features):
     try:
         with model_lock:
             trend_prediction = trend_model.predict(features, verbose=0)
-        return trend_prediction[0][0] > 0.80  # زيادة العتبة للتوقع الصاعد لتجنب الصفقات الخاسرة
+        return trend_prediction[0][0] > 0.60  # زيادة العتبة للتوقع الصاعد لتجنب الصفقات الخاسرة
     except Exception as e:
         print(f"خطأ في توقع الاتجاه: {e}")
         return False
@@ -116,12 +138,12 @@ def predict_trend(features):
 def predict_volatility(features):
     try:
         with model_lock:
+            features = np.array(features).reshape(1, -1)  # Reshape to match expected input
             predicted_volatility = volatility_model.predict(features)[0]
         return predicted_volatility
     except Exception as e:
         print(f"خطأ في توقع التذبذب: {e}")
         return None
-
 # إعادة تحميل النماذج عند الحاجة
 def reload_models_if_updated():
     try:
@@ -170,6 +192,11 @@ def train_models_with_updated_data():
 
 # فتح صفقة بناءً على الهدف الديناميكي
 def open_trade_with_dynamic_target(symbol):
+    
+    if bot_settings.trading_status() =="0":
+        print("the trading is of can't open more trad")
+        return
+    
     global balance
     if len(active_trades) >= max_open_trades:
         return
@@ -347,6 +374,9 @@ def get_top_symbols(limit=50, profit_target=0.007):
 def run_bot():
     last_symbol_update_time = time.time() - 900  # فرض تحديث أولي فور بدء التشغيل
     while True:
+        if bot_settings.bot_status() == '0':
+            print("Bot is turn of")
+            return
         current_time = time.time()
         if current_time - last_symbol_update_time >= 900:
             update_symbols()
