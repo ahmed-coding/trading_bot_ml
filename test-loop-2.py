@@ -16,7 +16,7 @@ from threading import Lock
 from binance.client import Client
 import concurrent.futures
 import threading
-from config import API_KEY, API_SECRET
+from config import API_KEY, API_SECRET,Settings
 from train_models import train_trend_model, train_volatility_model, load_data
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -41,6 +41,8 @@ symbols_to_trade = []
 current_prices = {}
 active_trades = {}
 lose_symbols = set()
+bot_settings=Settings()
+
 
 # ملف CSV لتسجيل التداولات
 csv_file = 'trades_log.csv'
@@ -154,6 +156,10 @@ def train_models_with_updated_data():
 # فتح صفقة بناءً على الهدف الديناميكي
 def open_trade_with_dynamic_target(symbol):
     global balance
+    if bot_settings.trading_status() =="0":
+        print("the trading is of can't open more trad")
+        return
+
     if len(active_trades) >= max_open_trades:
         # print(f"لا يمكن فتح صفقات جديدة - الحد الأقصى للصفقات المفتوحة ({max_open_trades}) تم الوصول إليه.")
         return
@@ -338,6 +344,9 @@ def get_top_symbols(limit=50, profit_target=0.007):
 def run_bot():
     last_symbol_update_time = time.time() - 900  # فرض تحديث أولي فور بدء التشغيل
     while True:
+        if bot_settings.bot_status() == '0':
+            print("Bot is turn of")
+            return
         current_time = time.time()
         if current_time - last_symbol_update_time >= 900:
             update_symbols()

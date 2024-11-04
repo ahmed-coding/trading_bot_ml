@@ -18,7 +18,7 @@ from threading import Lock
 import requests
 import warnings
 
-from config import API_KEY, API_SECRET
+from config import API_KEY, API_SECRET,Settings
 
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -48,6 +48,7 @@ commission_rate = 0.001 # نسبة العمولة للمنصة
 excluded_symbols = set()  # قائمة العملات المستثناة بسبب أخطاء متكررة
 symbols_to_trade = []
 lock = Lock()  # قفل لضمان عدم تداخل العمليات عند استخدام النماذج
+bot_settings=Settings()
 
 
 
@@ -253,6 +254,10 @@ def check_bnb_balance(min_bnb_balance=0.001):  # تقليل الحد الأدن�
 # Open a trade with dynamic profit and stop loss
 def open_trade_with_dynamic_target(symbol):
     global balance
+    
+    if bot_settings.trading_status() =="0":
+        print("the trading is of can't open more trad")
+        return
     features, _ = prepare_features(symbol)
     if features is None:
         return
@@ -489,4 +494,8 @@ def start_bot():
     trade_thread.start()
     
 if __name__ == "__main__":
-    start_bot()
+
+    if bot_settings.bot_status() == '0':
+        print("Bot is turn of")
+    else:
+        start_bot()

@@ -115,7 +115,7 @@ settings=Settings()
 
 status= settings.trading_status()
 print(status)
-settings.turn_trading_of()
+# settings.turn_trading_of()
 status= settings.trading_status()
 print(status)
 settings.turn_trading_on()
