@@ -77,7 +77,7 @@ def load_online_data():
     Load and preprocess data from online sources to enhance model training.
     """
     try:
-        response = requests.get("https://api.example.com/market_data")  # Example API endpoint
+        response = requests.get("https://api.binance.com/api/v3/ticker/24hr")  # Example API endpoint
         response.raise_for_status()
         market_data = response.json()
         # Assuming market_data is a list of dictionaries with relevant features
